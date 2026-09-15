@@ -118,6 +118,13 @@ if (env('S3_UPLOADS_KEY') && env('S3_UPLOADS_SECRET')) {
 } else {
 	Config::define('S3_UPLOADS_USE_INSTANCE_PROFILE', true);
 }
+// Custom S3-compatible endpoints (R2, MinIO, ...) often serve public files
+// from a different URL than the API endpoint itself — mu-plugins/s3-endpoint.php
+// points the API calls at S3_UPLOADS_ENDPOINT; this points generated media URLs
+// at the actual public bucket URL.
+if (env('S3_UPLOADS_BUCKET_URL')) {
+	Config::define('S3_UPLOADS_BUCKET_URL', env('S3_UPLOADS_BUCKET_URL'));
+}
 
 /**
  * Auth0 (auth0/wordpress admin SSO). Constant prefix per the plugin's
