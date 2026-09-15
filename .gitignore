@@ -1,0 +1,7 @@
+/vendor/
+/web/wp/
+/web/app/plugins/
+/web/app/mu-plugins/*
+!/web/app/mu-plugins/*.php
+/web/app/themes/
+.env

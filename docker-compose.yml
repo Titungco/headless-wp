@@ -1,0 +1,71 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file: .env
+    tmpfs:
+      - /tmp
+    read_only: true
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      createbuckets:
+        condition: service_completed_successfully
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-wordpress}
+      MYSQL_USER: ${DB_USER:-wordpress}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-wordpress}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_UPLOADS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_UPLOADS_SECRET:-minioadmin}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: creates the local media bucket with public-read on first run.
+  createbuckets:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_UPLOADS_KEY:-minioadmin} ${S3_UPLOADS_SECRET:-minioadmin} &&
+      mc mb --ignore-existing local/${S3_UPLOADS_BUCKET:-wp-media} &&
+      mc anonymous set download local/${S3_UPLOADS_BUCKET:-wp-media}
+      "
+
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:
